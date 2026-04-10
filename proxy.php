@@ -173,6 +173,12 @@ function normalizeProxyLine(string $line, string $type): ?string
     return null;
 }
 
+// Remove old output files before generating new ones
+foreach (glob('all*.txt') as $oldFile) {
+    unlink($oldFile);
+    echo "🗑️  Removed old file: $oldFile\n";
+}
+
 $allProxies = [];
 
 foreach ($proxySources as $type => $urls) {
