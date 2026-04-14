@@ -163,23 +163,23 @@ $proxySources = [
 ];
 
 
-function normalizeProxyLine(string $line, string $type): ?string
+function normalizeProxyLine(string $line): ?string
 {
     $line = trim($line);
     $line = preg_replace('#^(http|https|socks4|socks5)://#i', '', $line);
     if (preg_match('/^([\d\.]+):(\d+)/', $line, $matches)) {
-        return "($type){$matches[1]}:{$matches[2]}";
+        return "{$matches[1]}:{$matches[2]}";
     }
     return null;
 }
 
 // Remove old output files before generating new ones
-foreach (glob('all*.txt') as $oldFile) {
-    unlink($oldFile);
-    echo "🗑️  Removed old file: $oldFile\n";
+foreach (['http.txt', 'socks4.txt', 'socks5.txt'] as $oldFile) {
+    if (file_exists($oldFile)) {
+        unlink($oldFile);
+        echo "🗑️  Removed old file: $oldFile\n";
+    }
 }
-
-$allProxies = [];
 
 foreach ($proxySources as $type => $urls) {
     $proxies = [];
@@ -197,7 +197,7 @@ foreach ($proxySources as $type => $urls) {
         }
 
         foreach (explode("\n", $content) as $line) {
-            $proxy = normalizeProxyLine($line, $type);
+            $proxy = normalizeProxyLine($line);
             if ($proxy) {
                 $proxies[] = $proxy;
                 $urlCount++;
@@ -210,7 +210,7 @@ foreach ($proxySources as $type => $urls) {
 
     if (file_exists("output.txt")) {
         foreach (file("output.txt", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $proxy = normalizeProxyLine($line, $type);
+            $proxy = normalizeProxyLine($line);
             if ($proxy) {
                 $proxies[] = $proxy;
                 $scraperCount++;
@@ -224,27 +224,13 @@ foreach ($proxySources as $type => $urls) {
     $totalSaved = count($uniqueProxies);
     $duplicates = $totalBeforeDedup - $totalSaved;
 
-    $allProxies = array_merge($allProxies, $uniqueProxies);
+    $filename = "$type.txt";
+    file_put_contents($filename, implode(PHP_EOL, $uniqueProxies));
 
     echo "✅ Done: $type\n";
     echo "   - From URLs         : $urlCount\n";
     echo "   - From proxy_scraper: $scraperCount\n";
     echo "   - Total collected   : $totalBeforeDedup\n";
     echo "   - Duplicates removed: $duplicates\n";
-    echo "   - Total saved       : $totalSaved\n";
+    echo "   - Saved to          : $filename ($totalSaved proxies)\n";
 }
-
-// Save all proxies split by 300,000 rows
-$allUnique = array_unique($allProxies);
-$totalCount = count($allUnique);
-$chunkSize = 300000;
-
-$chunks = array_chunk($allUnique, $chunkSize);
-
-foreach ($chunks as $index => $chunk) {
-    $filename = $index === 0 ? 'all.txt' : "all_part" . ($index + 1) . ".txt";
-    file_put_contents($filename, implode(PHP_EOL, $chunk));
-    echo "📦 Saved $filename with " . count($chunk) . " proxies.\n";
-}
-
-echo "\n✅ Total unique proxies saved: $totalCount\n";
