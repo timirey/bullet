@@ -160,11 +160,16 @@ $proxySources = [
 function normalizeProxyLine(string $line): ?string
 {
     $line = trim($line);
-    $line = preg_replace('#^(http|https|socks4|socks5)://#i', '', $line);
-    if (preg_match('/^([\d\.]+):(\d+)/', $line, $matches)) {
-        return "{$matches[1]}:{$matches[2]}";
+    $line = preg_replace('#^(?:https?|socks[45])://#i', '', $line);
+    if (!preg_match('/^((?:\d{1,3}\.){3}\d{1,3}):(\d{1,5})(?:[^\d]|$)/', $line, $matches)) {
+        return null;
     }
-    return null;
+    foreach (explode('.', $matches[1]) as $octet) {
+        if ((int)$octet > 255) return null;
+    }
+    $port = (int)$matches[2];
+    if ($port < 1 || $port > 65535) return null;
+    return "{$matches[1]}:{$port}";
 }
 
 // Remove old output files before generating new ones
